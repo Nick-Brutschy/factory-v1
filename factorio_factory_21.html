@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Factorio Factory Layout</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden;background:#0e0e08;font-family:'Share Tech Mono',monospace}
+  body{display:flex;flex-direction:column}
+  header{background:#111108;border-bottom:2px solid #3a2800;padding:7px 14px;display:flex;align-items:center;gap:10px;flex-shrink:0;height:40px;overflow:hidden}
+  .logo{color:#ffc107;font-size:13px;letter-spacing:2px;white-space:nowrap}
+  .sw{position:relative;flex:1;max-width:280px}
+  .sw input{width:100%;background:#0a0a04;border:1px solid #3a2800;border-radius:2px;color:#c8b870;font-family:'Share Tech Mono',monospace;font-size:11px;padding:4px 9px 4px 24px;outline:none}
+  .sw input:focus{border-color:#ffc107}
+  .sw::before{content:'⌕';position:absolute;left:6px;top:50%;transform:translateY(-50%);color:#6a5a3a;font-size:13px}
+  #clr{background:none;border:none;color:#6a5a3a;cursor:pointer;font-size:11px;padding:0 3px;display:none}
+  #clr.v{display:block}
+  .zg{display:flex;align-items:center;gap:3px}
+  .zb{background:#1c1c08;border:1px solid #3a3008;color:#c8b870;font-family:'Share Tech Mono',monospace;font-size:11px;padding:3px 8px;border-radius:2px;cursor:pointer}
+  .zb:hover{border-color:#ffc107;color:#ffc107}
+  #zlbl{color:#6a5a3a;font-size:10px;min-width:38px;text-align:center}
+  .hint{color:#2a1a04;font-size:9px;white-space:nowrap}
+  #vp{flex:1;overflow-y:scroll;overflow-x:hidden;position:relative;scrollbar-gutter:stable}
+  #vp::-webkit-scrollbar{width:8px}
+  #vp::-webkit-scrollbar-track{background:#0a0a04}
+  #vp::-webkit-scrollbar-thumb{background:#3a2808;border-radius:2px}
+  #canvas-holder{display:flex;justify-content:center;align-items:flex-start}
+  canvas{display:block;image-rendering:pixelated;cursor:pointer}
+  #tt{position:fixed;background:#0a0a04;border:1px solid #ffc107;border-radius:2px;padding:5px 9px;font-size:10px;color:#c8b870;pointer-events:none;z-index:100;display:none;max-width:220px;box-shadow:0 4px 16px rgba(0,0,0,.8)}
+  #tt.v{display:block}
+  #tt b{color:#ffc107;display:block;margin-bottom:2px}
+  #tt s{color:#6a5a3a}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">▶ FACTORIO FACTORY</div>
+  <div class="sw">
+    <input type="text" id="srch" placeholder="Search to highlight..." autocomplete="off">
+    <button id="clr">✕</button>
+  </div>
+  <div class="zg">
+    <button class="zb" id="z-">−</button>
+    <span id="zlbl">100%</span>
+    <button class="zb" id="z+">+</button>
+    <button class="zb" id="zfit">FIT</button>
+    <button class="zb" id="z1">1:1</button>
+  </div>
+  <div class="hint">CTRL+SCROLL ZOOM · SCROLL PAN · CLICK HIGHLIGHT</div>
+</header>
+<div id="vp"><div id="canvas-holder"></div></div>
+<div id="tt"></div>
+
+<script>
+const RECIPES = {"accumulator": {"name": "Accumulator", "depth": 3, "ingredients": [{"id": "battery", "amount": 5}, {"id": "iron-plate", "amount": 2}], "isBase": false, "usage": 1}, "logistic-chest-active-provider": {"name": "Active provider chest", "depth": 5, "ingredients": [{"id": "advanced-circuit", "amount": 1}, {"id": "electronic-circuit", "amount": 3}, {"id": "steel-chest", "amount": 1}], "isBase": false, "usage": 0}, "advanced-circuit": {"name": "Advanced circuit", "depth": 4, "ingredients": [{"id": "copper-cable", "amount": 4}, {"id": "electronic-circuit", "amount": 2}, {"id": "plastic-bar", "amount": 2}], "isBase": false, "usage": 34}, "arithmetic-combinator": {"name": "Arithmetic combinator", "depth": 4, "ingredients": [{"id": "copper-cable", "amount": 5}, {"id": "electronic-circuit", "amount": 5}], "isBase": false, "usage": 0}, "artillery-shell": {"name": "Artillery shell", "depth": 5, "ingredients": [{"id": "explosive-cannon-shell", "amount": 4}, {"id": "explosives", "amount": 8}, {"id": "radar", "amount": 1}], "isBase": false, "usage": 0}, "artillery-targeting-remote": {"name": "Artillery targeting remote", "depth": 6, "ingredients": [{"id": "processing-unit", "amount": 1}, {"id": "radar", "amount": 1}], "isBase": false, "usage": 0}, "artillery-turret": {"name": "Artillery turret", "depth": 5, "ingredients": [{"id": "advanced-circuit", "amount": 20}, {"id": "concrete", "amount": 60}, {"id": "iron-gear-wheel", "amount": 40}, {"id": "steel-plate", "amount": 60}], "isBase": false, "usage": 0}, "artillery-wagon": {"name": "Artillery wagon", "depth": 5, "ingredients": [{"id": "advanced-circuit", "amount": 20}, {"id": "engine-unit", "amount": 64}, {"id": "iron-gear-wheel", "amount": 10}, {"id": "pipe", "amount": 16}, {"id": "steel-plate", "amount": 40}], "isBase": false, "usage": 0}, "assembling-machine-1": {"name": "Assembling machine 1", "depth": 4, "ingredients": [{"id": "electronic-circuit", "amount": 3}, {"id": "iron-gear-wheel", "amount": 5}, {"id": "iron-plate", "amount": 9}], "isBase": false, "usage": 1}, "assembling-machine-2": {"name": "Assembling machine 2", "depth": 5, "ingredients": [{"id": "assembling-machine-1", "amount": 1}, {"id": "electronic-circuit", "amount": 3}, {"id": "iron-gear-wheel", "amount": 5}, {"id": "iron-plate", "amount": 9}], "isBase": false, "usage": 1}, "assembling-machine-3": {"name": "Assembling machine 3", "depth": 6, "ingredients": [{"id": "assembling-machine-2", "amount": 2}, {"id": "speed-module", "amount": 4}], "isBase": false, "usage": 0}, "atomic-bomb": {"name": "Atomic bomb", "depth": 6, "ingredients": [{"id": "explosives", "amount": 10}, {"id": "processing-unit", "amount": 20}, {"id": "uranium-235", "amount": 30}], "isBase": false, "usage": 0}, "battery": {"name": "Battery", "depth": 2, "ingredients": [{"id": "copper-plate", "amount": 1}, {"id": "iron-plate", "amount": 1}, {"id": "sulfuric-acid", "amount": 20}], "isBase": false, "usage": 6}, "battery-mk1": {"name": "Battery MK1", "depth": 3, "ingredients": [{"id": "battery", "amount": 5}, {"id": "steel-plate", "amount": 10}], "isBase": false, "usage": 1}, "battery-mk2": {"name": "Battery MK2", "depth": 6, "ingredients": [{"id": "battery-mk1", "amount": 10}, {"id": "processing-unit", "amount": 20}], "isBase": false, "usage": 0}, "beacon": {"name": "Beacon", "depth": 5, "ingredients": [{"id": "advanced-circuit", "amount": 20}, {"id": "copper-cable", "amount": 10}, {"id": "electronic-circuit", "amount": 20}, {"id": "steel-plate", "amount": 10}], "isBase": false, "usage": 0}, "big-electric-pole": {"name": "Big electric pole", "depth": 3, "ingredients": [{"id": "copper-plate", "amount": 5}, {"id": "steel-plate", "amount": 5}], "isBase": false, "usage": 0}, "blueprint": {"name": "Blueprint", "depth": 0, "ingredients": [], "isBase": true, "usage": 0}, "blueprint-book": {"name": "Blueprint book", "depth": 0, "ingredients": [], "isBase": true, "usage": 0}, "boiler": {"name": "Boiler", "depth": 3, "ingredients": [{"id": "pipe", "amount": 4}, {"id": "stone-furnace", "amount": 1}], "isBase": false, "usage": 0}, "logistic-chest-buffer": {"name": "Buffer chest", "depth": 5, "ingredients": [{"id": "advanced-circuit", "amount": 1}, {"id": "electronic-circuit", "amount": 3}, {"id": "steel-chest", "amount": 1}], "isBase": false, "usage": 0}, "burner-inserter": {"name": "Burner inserter", "depth": 3, "ingredients": [{"id": "iron-gear-wheel", "amount": 1}, {"id": "iron-plate", "amount": 1}], "isBase": false, "usage": 0}, "burner-mining-drill": {"name": "Burner mining drill", "depth": 3, "ingredients": [{"id": "iron-gear-wheel", "amount": 3}, {"id": "iron-plate", "amount": 3}, {"id": "stone-furnace", "amount": 1}], "isBase": false, "usage": 0}, "cannon-shell": {"name": "Cannon shell", "depth": 3, "ingredients": [{"id": "explosives", "amount": 1}, {"id": "plastic-bar", "amount": 2}, {"id": "steel-plate", "amount": 2}], "isBase": false, "usage": 1}, "car": {"name": "Car", "depth": 4, "ingredients": [{"id": "engine-unit", "amount": 8}, {"id": "iron-plate", "amount": 20}, {"id": "steel-plate", "amount": 5}], "isBase": false, "usage": 0}, "cargo-wagon": {"name": "Cargo wagon", "depth": 3, "ingredients": [{"id": "iron-gear-wheel", "amount": 10}, {"id": "iron-plate", "amount": 20}, {"id": "steel-plate", "amount": 20}], "isBase": false, "usage": 0}, "centrifuge": {"name": "Centrifuge", "depth": 5, "ingredients": [{"id": "advanced-circuit", "amount": 100}, {"id": "concrete", "amount": 100}, {"id": "iron-gear-wheel", "amount": 100}, {"id": "steel-plate", "amount": 50}], "isBase": false, "usage": 0}, "chemical-plant": {"name": "Chemical plant", "depth": 4, "ingredients": [{"id": "electronic-circuit", "amount": 5}, {"id": "iron-gear-wheel", "amount": 5}, {"id": "pipe", "amount": 5}, {"id": "steel-plate", "amount": 5}], "isBase": false, "usage": 0}, "cliff-explosives": {"name": "Cliff explosives", "depth": 4, "ingredients": [{"id": "empty-barrel", "amount": 1}, {"id": "explosives", "amount": 10}, {"id": "grenade", "amount": 1}], "isBase": false, "usage": 0}, "cluster-grenade": {"name": "Cluster grenade", "depth": 3, "ingredients": [{"id": "explosives", "amount": 5}, {"id": "grenade", "amount": 7}, {"id": "steel-plate", "amount": 5}], "isBase": false, "usage": 0}, "coal": {"name": "Coal", "depth": 0, "ingredients": [], "isBase": true, "usage": 5}, "combat-shotgun": {"name": "Combat shotgun", "depth": 3, "ingredients": [{"id": "copper-plate", "amount": 10}, {"id": "iron-gear-wheel", "amount": 5}, {"id": "steel-plate", "amount": 15}, {"id": "wood", "amount": 10}], "isBase": false, "usage": 0}, "concrete": {"name": "Concrete", "depth": 2, "ingredients": [{"id": "iron-ore", "amount": 1}, {"id": "stone-brick", "amount": 5}, {"id": "water", "amount": 100}], "isBase": false, "usage": 6}, "constant-combinator": {"name": "Constant combinator", "depth": 4, "ingredients": [{"id": "copper-cable", "amount": 5}, {"id": "electronic-circuit", "amount": 2}], "isBase": false, "usage": 0}, "construction-robot": {"name": "Construction robot", "depth": 6, "ingredients": [{"id": "electronic-circuit", "amount": 2}, {"id": "flying-robot-frame", "amount": 1}], "isBase": false, "usage": 0}, "copper-cable": {"name": "Copper cable", "depth": 2, "ingredients": [{"id": "copper-plate", "amount": 1}], "isBase": false, "usage": 12}, "copper-ore": {"name": "Copper ore", "depth": 0, "ingredients": [], "isBase": true, "usage": 1}, "copper-plate": {"name": "Copper plate", "depth": 1, "ingredients": [{"id": "copper-ore", "amount": 1}], "isBase": false, "usage": 21}, "crude-oil": {"name": "Crude oil", "depth": 0, "ingredients": [], "isBase": true, "usage": 0}, "crude-oil-barrel": {"name": "Crude oil barrel", "depth": 0, "ingredients": [], "isBase": true, "usage": 0}, "decider-combinator": {"name": "Decider combinator", "depth": 4, "ingredients": [{"id": "copper-cable", "amount": 5}, {"id": "electronic-circuit", "amount": 5}], "isBase": false, "usage": 0}, "deconstruction-planner": {"name": "Deconstruction planner", "depth": 0, "ingredients": [], "isBase": true, "usage": 0}, "defender-capsule": {"name": "Defender capsule", "depth": 4, "ingredients": [{"id": "electronic-circuit", "amount": 2}, {"id": "iron-gear-wheel", "amount": 3}, {"id": "piercing-rounds-magazine", "amount": 1}], "isBase": false, "usage": 1}, "destroyer-capsule": {"name": "Destroyer capsule", "depth": 6, "ingredients": [{"id": "distractor-capsule", "amount": 4}, {"id": "speed-module", "amount": 1}], "isBase": false, "usage": 0}, "discharge-defense": {"name": "Discharge defense", "depth": 6, "ingredients": [{"id": "laser-turret", "amount": 10}, {"id": "processing-unit", "amount": 5}, {"id": "steel-plate", "amount": 20}], "isBase": false, "usage": 0}, "discharge-defense-remote": {"name": "Discharge defense remote", "depth": 4, "ingredients": [{"id": "electronic-circuit", "amount": 1}], "isBase": false, "usage": 0}, "distractor-capsule": {"name": "Distractor capsule", "depth": 5, "ingredients": [{"id": "advanced-circuit", "amount": 3}, {"id": "defender-capsule", "amount": 4}], "isBase": false, "usage": 1}, "effectivity-module": {"name": "Efficiency module", "depth": 5, "ingredients": [{"id": "advanced-circuit", "amount": 5}, {"id": "electronic-circuit", "amount": 5}], "isBase": false, "usage": 1}, "effectivity-module-2": {"name": "Efficiency module 2", "depth": 6, "ingredients": [{"id": "advanced-circuit", "amount": 5}, {"id": "effectivity-module", "amount": 4}, {"id": "processing-unit", "amount": 5}], "isBase": false, "usage": 1}, "effectivity-module-3": {"name": "Efficiency module 3", "depth": 7, "ingredients": [{"id": "advanced-circuit", "amount": 5}, {"id": "effectivity-module-2", "amount": 5}, {"id": "processing-unit", "amount": 5}], "isBase": false, "usage": 1}, "electric-engine-unit": {"name": "Electric engine unit", "depth": 4, "ingredients": [{"id": "electronic-circuit", "amount": 2}, {"id": "engine-unit", "amount": 1}, {"id": "lubricant", "amount": 15}], "isBase": false, "usage": 5}, "electric-furnace": {"name": "Electric furnace", "depth": 5, "ingredients": [{"id": "advanced-circuit", "amount": 5}, {"id": "steel-plate", "amount": 10}, {"id": "stone-brick", "amount": 10}], "isBase": false, "usage": 1}, "electric-mining-drill": {"name": "Electric mining drill", "depth": 4, "ingredients": [{"id": "electronic-circuit", "amount": 3}, {"id": "iron-gear-wheel", "amount": 5}, {"id": "iron-plate", "amount": 10}], "isBase": false, "usage": 1}, "electronic-circuit": {"name": "Electronic circuit", "depth": 3, "ingredients": [{"id": "copper-cable", "amount": 3}, {"id": "iron-plate", "amount": 1}], "isBase": false, "usage": 52}, "empty-barrel": {"name": "Empty barrel", "depth": 3, "ingredients": [{"id": "steel-plate", "amount": 1}], "isBase": false, "usage": 1}, "energy-shield": {"name": "Energy shield", "depth": 5, "ingredients": [{"id": "advanced-circuit", "amount": 5}, {"id": "steel-plate", "amount": 10}], "isBase": false, "usage": 1}, "energy-shield-mk2": {"name": "Energy shield MK2", "depth": 6, "ingredients": [{"id": "energy-shield", "amount": 10}, {"id": "processing-unit", "amount": 10}], "isBase": false, "usage": 0}, "engine-unit": {"name": "Engine unit", "depth": 3, "ingredients": [{"id": "iron-gear-wheel", "amount": 1}, {"id": "pipe", "amount": 2}, {"id": "steel-plate", "amount": 1}], "isBase": false, "usage": 8}, "exoskeleton": {"name": "Exoskeleton", "depth": 6, "ingredients": [{"id": "electric-engine-unit", "amount": 30}, {"id": "processing-unit", "amount": 10}, {"id": "steel-plate", "amount": 20}], "isBase": false, "usage": 0}, "explosive-cannon-shell": {"name": "Explosive cannon shell", "depth": 3, "ingredients": [{"id": "explosives", "amount": 2}, {"id": "plastic-bar", "amount": 2}, {"id": "steel-plate", "amount": 2}], "isBase": false, "usage": 2}, "explosive-rocket": {"name": "Explosive rocket", "depth": 5, "ingredients": [{"id": "explosives", "amount": 2}, {"id": "rocket", "amount": 1}], "isBase": false, "usage": 0}, "explosive-uranium-cannon-shell": {"name": "Explosive uranium cannon shell", "depth": 4, "ingredients": [{"id": "explosive-cannon-shell", "amount": 1}, {"id": "uranium-238", "amount": 1}], "isBase": false, "usage": 0}, "explosives": {"name": "Explosives", "depth": 2, "ingredients": [{"id": "coal", "amount": 1}, {"id": "sulfur", "amount": 1}, {"id": "water", "amount": 10}], "isBase": false, "usage": 9}, "express-splitter": {"name": "Express splitter", "depth": 6, "ingredients": [{"id": "advanced-circuit", "amount": 10}, {"id": "fast-splitter", "amount": 1}, {"id": "iron-gear-wheel", "amount": 10}, {"id": "lubricant", "amount": 80}], "isBase": false, "usage": 0}, "express-transport-belt": {"name": "Express transport belt", "depth": 5, "ingredients": [{"id": "fast-transport-belt", "amount": 1}, {"id": "iron-gear-wheel", "amount": 10}, {"id": "lubricant", "amount": 20}], "isBase": false, "usage": 0}, "express-underground-belt": {"name": "Express underground belt", "depth": 6, "ingredients": [{"id": "fast-underground-belt", "amount": 2}, {"id": "iron-gear-wheel", "amount": 80}, {"id": "lubricant", "amount": 40}], "isBase": false, "usage": 0}, "fast-inserter": {"name": "Fast inserter", "depth": 5, "ingredients": [{"id": "electronic-circuit", "amount": 2}, {"id": "inserter", "amount": 1}, {"id": "iron-plate", "amount": 2}], "isBase": false, "usage": 2}, "fast-splitter": {"name": "Fast splitter", "depth": 5, "ingredients": [{"id": "electronic-circuit", "amount": 10}, {"id": "iron-gear-wheel", "amount": 10}, {"id": "splitter", "amount": 1}], "isBase": false, "usage": 1}, "fast-transport-belt": {"name": "Fast transport belt", "depth": 4, "ingredients": [{"id": "iron-gear-wheel", "amount": 5}, {"id": "transport-belt", "amount": 1}], "isBase": false, "usage": 1}, "fast-underground-belt": {"name": "Fast underground belt", "depth": 5, "ingredients": [{"id": "iron-gear-wheel", "amount": 40}, {"id": "underground-belt", "amount": 2}], "isBase": false, "usage": 1}, "filter-inserter": {"name": "Filter inserter", "depth": 6, "ingredients": [{"id": "electronic-circuit", "amount": 4}, {"id": "fast-inserter", "amount": 1}], "isBase": false, "usage": 0}, "firearm-magazine": {"name": "Firearm magazine", "depth": 2, "ingredients": [{"id": "iron-plate", "amount": 4}], "isBase": false, "usage": 1}, "flamethrower": {"name": "Flamethrower", "depth": 3, "ingredients": [{"id": "iron-gear-wheel", "amount": 10}, {"id": "steel-plate", "amount": 5}], "isBase": false, "usage": 0}, "flamethrower-ammo": {"name": "Flamethrower ammo", "depth": 3, "ingredients": [{"id": "heavy-oil", "amount": 50}, {"id": "light-oil", "amount": 50}, {"id": "steel-plate", "amount": 5}], "isBase": false, "usage": 0}, "flamethrower-turret": {"name": "Flamethrower turret", "depth": 4, "ingredients": [{"id": "engine-unit", "amount": 5}, {"id": "iron-gear-wheel", "amount": 15}, {"id": "pipe", "amount": 10}, {"id": "steel-plate", "amount": 30}], "isBase": false, "usage": 0}, "fluid-wagon": {"name": "Fluid wagon", "depth": 4, "ingredients": [{"id": "iron-gear-wheel", "amount": 10}, {"id": "pipe", "amount": 8}, {"id": "steel-plate", "amount": 16}, {"id": "storage-tank", "amount": 1}], "isBase": false, "usage": 0}, "flying-robot-frame": {"name": "Flying robot frame", "depth": 5, "ingredients": [{"id": "battery", "amount": 2}, {"id": "electric-engine-unit", "amount": 1}, {"id": "electronic-circuit", "amount": 3}, {"id": "steel-plate", "amount": 1}], "isBase": false, "usage": 2}, "gate": {"name": "Gate", "depth": 4, "ingredients": [{"id": "electronic-circuit", "amount": 2}, {"id": "steel-plate", "amount": 2}, {"id": "stone-wall", "amount": 1}], "isBase": false, "usage": 0}, "green-wire": {"name": "Green wire", "depth": 4, "ingredients": [{"id": "copper-cable", "amount": 1}, {"id": "electronic-circuit", "amount": 1}], "isBase": false, "usage": 0}, "grenade": {"name": "Grenade", "depth": 2, "ingredients": [{"id": "coal", "amount": 10}, {"id": "iron-plate", "amount": 5}], "isBase": false, "usage": 3}, "gun-turret": {"name": "Gun turret", "depth": 3, "ingredients": [{"id": "copper-plate", "amount": 10}, {"id": "iron-gear-wheel", "amount": 10}, {"id": "iron-plate", "amount": 20}], "isBase": false, "usage": 1}, "hazard-concrete": {"name": "Hazard concrete", "depth": 3, "ingredients": [{"id": "concrete", "amount": 10}], "isBase": false, "usage": 0}, "heat-exchanger": {"name": "Heat exchanger", "depth": 3, "ingredients": [{"id": "copper-plate", "amount": 100}, {"id": "pipe", "amount": 10}, {"id": "steel-plate", "amount": 10}], "isBase": false, "usage": 0}, "heat-pipe": {"name": "Heat pipe", "depth": 3, "ingredients": [{"id": "copper-plate", "amount": 20}, {"id": "steel-plate", "amount": 10}], "isBase": false, "usage": 0}, "heavy-armor": {"name": "Heavy armor", "depth": 3, "ingredients": [{"id": "copper-plate", "amount": 100}, {"id": "steel-plate", "amount": 50}], "isBase": false, "usage": 0}, "heavy-oil": {"name": "Heavy oil", "depth": 0, "ingredients": [], "isBase": true, "usage": 2}, "heavy-oil-barrel": {"name": "Heavy oil barrel", "depth": 0, "ingredients": [], "isBase": true, "usage": 0}, "high-tech-science-pack": {"name": "High tech science pack", "depth": 6, "ingredients": [{"id": "battery", "amount": 1}, {"id": "copper-cable", "amount": 30}, {"id": "processing-unit", "amount": 3}, {"id": "speed-module", "amount": 1}], "isBase": false, "usage": 0}, "inserter": {"name": "Inserter", "depth": 4, "ingredients": [{"id": "electronic-circuit", "amount": 1}, {"id": "iron-gear-wheel", "amount": 1}, {"id": "iron-plate", "amount": 1}], "isBase": false, "usage": 3}, "iron-axe": {"name": "Iron axe", "depth": 3, "ingredients": [{"id": "iron-plate", "amount": 3}, {"id": "iron-stick", "amount": 2}], "isBase": false, "usage": 0}, "iron-chest": {"name": "Iron chest", "depth": 2, "ingredients": [{"id": "iron-plate", "amount": 8}], "isBase": false, "usage": 0}, "iron-gear-wheel": {"name": "Iron gear wheel", "depth": 2, "ingredients": [{"id": "iron-plate", "amount": 2}], "isBase": false, "usage": 42}, "iron-ore": {"name": "Iron ore", "depth": 0, "ingredients": [], "isBase": true, "usage": 2}, "iron-plate": {"name": "Iron plate", "depth": 1, "ingredients": [{"id": "iron-ore", "amount": 1}], "isBase": false, "usage": 44}, "iron-stick": {"name": "Iron stick", "depth": 2, "ingredients": [{"id": "iron-plate", "amount": 1}], "isBase": false, "usage": 5}, "kovarex-enrichment-process": {"name": "Kovarex enrichment process", "depth": 1, "ingredients": [{"id": "uranium-235", "amount": 40}, {"id": "uranium-238", "amount": 5}], "isBase": false, "usage": 0}, "lab": {"name": "Lab", "depth": 4, "ingredients": [{"id": "electronic-circuit", "amount": 10}, {"id": "iron-gear-wheel", "amount": 10}, {"id": "transport-belt", "amount": 4}], "isBase": false, "usage": 0}, "lamp": {"name": "Lamp", "depth": 4, "ingredients": [{"id": "electronic-circuit", "amount": 1}, {"id": "iron-plate", "amount": 1}, {"id": "iron-stick", "amount": 3}], "isBase": false, "usage": 0}, "land-mine": {"name": "Land mine", "depth": 3, "ingredients": [{"id": "explosives", "amount": 2}, {"id": "steel-plate", "amount": 1}], "isBase": false, "usage": 0}, "landfill": {"name": "Landfill", "depth": 1, "ingredients": [{"id": "stone", "amount": 20}], "isBase": false, "usage": 0}, "laser-turret": {"name": "Laser turret", "depth": 4, "ingredients": [{"id": "battery", "amount": 12}, {"id": "electronic-circuit", "amount": 20}, {"id": "steel-plate", "amount": 20}], "isBase": false, "usage": 2}, "light-armor": {"name": "Light armor", "depth": 2, "ingredients": [{"id": "iron-plate", "amount": 40}], "isBase": false, "usage": 0}, "light-oil": {"name": "Light oil", "depth": 0, "ingredients": [], "isBase": true, "usage": 1}, "light-oil-barrel": {"name": "Light oil barrel", "depth": 0, "ingredients": [], "isBase": true, "usage": 0}, "locomotive": {"name": "Locomotive", "depth": 4, "ingredients": [{"id": "electronic-circuit", "amount": 10}, {"id": "engine-unit", "amount": 20}, {"id": "steel-plate", "amount": 30}], "isBase": false, "usage": 0}, "logistic-robot": {"name": "Logistic robot", "depth": 6, "ingredients": [{"id": "advanced-circuit", "amount": 2}, {"id": "flying-robot-frame", "amount": 1}], "isBase": false, "usage": 0}, "long-handed-inserter": {"name": "Long handed inserter", "depth": 5, "ingredients": [{"id": "inserter", "amount": 1}, {"id": "iron-gear-wheel", "amount": 1}, {"id": "iron-plate", "amount": 1}], "isBase": false, "usage": 0}, "low-density-structure": {"name": "Low density structure", "depth": 3, "ingredients": [{"id": "copper-plate", "amount": 5}, {"id": "plastic-bar", "amount": 5}, {"id": "steel-plate", "amount": 10}], "isBase": false, "usage": 2}, "lubricant": {"name": "Lubricant", "depth": 0, "ingredients": [{"id": "heavy-oil", "amount": 10}], "isBase": true, "usage": 4}, "lubricant-barrel": {"name": "Lubricant barrel", "depth": 0, "ingredients": [], "isBase": true, "usage": 0}, "medium-electric-pole": {"name": "Medium electric pole", "depth": 3, "ingredients": [{"id": "copper-plate", "amount": 2}, {"id": "steel-plate", "amount": 2}], "isBase": false, "usage": 0}, "military-science-pack": {"name": "Military science pack", "depth": 4, "ingredients": [{"id": "grenade", "amount": 1}, {"id": "gun-turret", "amount": 1}, {"id": "piercing-rounds-magazine", "amount": 1}], "isBase": false, "usage": 0}, "modular-armor": {"name": "Modular armor", "depth": 5, "ingredients": [{"id": "advanced-circuit", "amount": 30}, {"id": "steel-plate", "amount": 50}], "isBase": false, "usage": 0}, "nightvision": {"name": "Nightvision", "depth": 5, "ingredients": [{"id": "advanced-circuit", "amount": 5}, {"id": "steel-plate", "amount": 10}], "isBase": false, "usage": 0}, "nuclear-fuel": {"name": "Nuclear fuel", "depth": 2, "ingredients": [{"id": "rocket-fuel", "amount": 1}, {"id": "uranium-235", "amount": 1}], "isBase": false, "usage": 0}, "nuclear-fuel-reprocessing": {"name": "Nuclear fuel reprocessing", "depth": 4, "ingredients": [{"id": "used-up-uranium-fuel-cell", "amount": 5}, {"id": "uranium-238", "amount": 3}], "isBase": false, "usage": 0}, "nuclear-reactor": {"name": "Nuclear reactor", "depth": 5, "ingredients": [{"id": "advanced-circuit", "amount": 500}, {"id": "concrete", "amount": 500}, {"id": "copper-plate", "amount": 500}, {"id": "steel-plate", "amount": 500}], "isBase": false, "usage": 0}, "offshore-pump": {"name": "Offshore pump", "depth": 4, "ingredients": [{"id": "electronic-circuit", "amount": 2}, {"id": "iron-gear-wheel", "amount": 1}, {"id": "pipe", "amount": 1}], "isBase": false, "usage": 0}, "oil-refinery": {"name": "Oil refinery", "depth": 4, "ingredients": [{"id": "electronic-circuit", "amount": 10}, {"id": "iron-gear-wheel", "amount": 10}, {"id": "pipe", "amount": 10}, {"id": "steel-plate", "amount": 15}, {"id": "stone-brick", "amount": 10}], "isBase": false, "usage": 0}, "logistic-chest-passive-provider": {"name": "Passive provider chest", "depth": 5, "ingredients": [{"id": "advanced-circuit", "amount": 1}, {"id": "electronic-circuit", "amount": 3}, {"id": "steel-chest", "amount": 1}], "isBase": false, "usage": 0}, "personal-laser-defense": {"name": "Personal laser defense", "depth": 6, "ingredients": [{"id": "laser-turret", "amount": 5}, {"id": "processing-unit", "amount": 1}, {"id": "steel-plate", "amount": 5}], "isBase": false, "usage": 0}, "personal-roboport": {"name": "Personal roboport", "depth": 5, "ingredients": [{"id": "advanced-circuit", "amount": 10}, {"id": "battery", "amount": 45}, {"id": "iron-gear-wheel", "amount": 40}, {"id": "steel-plate", "amount": 20}], "isBase": false, "usage": 1}, "personal-roboport-mk2": {"name": "Personal roboport MK2", "depth": 6, "ingredients": [{"id": "personal-roboport", "amount": 5}, {"id": "processing-unit", "amount": 100}], "isBase": false, "usage": 0}, "petroleum-gas": {"name": "Petroleum gas", "depth": 0, "ingredients": [], "isBase": true, "usage": 2}, "petroleum-gas-barrel": {"name": "Petroleum gas barrel", "depth": 0, "ingredients": [], "isBase": true, "usage": 0}, "piercing-rounds-magazine": {"name": "Piercing rounds magazine", "depth": 3, "ingredients": [{"id": "copper-plate", "amount": 5}, {"id": "firearm-magazine", "amount": 1}, {"id": "steel-plate", "amount": 1}], "isBase": false, "usage": 3}, "piercing-shotgun-shells": {"name": "Piercing shotgun shells", "depth": 3, "ingredients": [{"id": "copper-plate", "amount": 5}, {"id": "shotgun-shells", "amount": 2}, {"id": "steel-plate", "amount": 2}], "isBase": false, "usage": 0}, "pipe": {"name": "Pipe", "depth": 2, "ingredients": [{"id": "iron-plate", "amount": 1}], "isBase": false, "usage": 15}, "pipe-to-ground": {"name": "Pipe to ground", "depth": 3, "ingredients": [{"id": "iron-plate", "amount": 5}, {"id": "pipe", "amount": 10}], "isBase": false, "usage": 0}, "pistol": {"name": "Pistol", "depth": 2, "ingredients": [{"id": "copper-plate", "amount": 5}, {"id": "iron-plate", "amount": 5}], "isBase": false, "usage": 0}, "plastic-bar": {"name": "Plastic bar", "depth": 1, "ingredients": [{"id": "coal", "amount": 1}, {"id": "petroleum-gas", "amount": 20}], "isBase": false, "usage": 4}, "poison-capsule": {"name": "Poison capsule", "depth": 4, "ingredients": [{"id": "coal", "amount": 10}, {"id": "electronic-circuit", "amount": 3}, {"id": "steel-plate", "amount": 3}], "isBase": false, "usage": 0}, "portable-fusion-reactor": {"name": "Portable fusion reactor", "depth": 6, "ingredients": [{"id": "processing-unit", "amount": 250}], "isBase": false, "usage": 0}, "portable-solar-panel": {"name": "Portable solar panel", "depth": 5, "ingredients": [{"id": "advanced-circuit", "amount": 1}, {"id": "solar-panel", "amount": 5}, {"id": "steel-plate", "amount": 5}], "isBase": false, "usage": 0}, "power-armor": {"name": "Power armor", "depth": 6, "ingredients": [{"id": "electric-engine-unit", "amount": 20}, {"id": "processing-unit", "amount": 40}, {"id": "steel-plate", "amount": 40}], "isBase": false, "usage": 0}, "power-armor-mk2": {"name": "Power armor MK2", "depth": 8, "ingredients": [{"id": "effectivity-module-3", "amount": 5}, {"id": "processing-unit", "amount": 40}, {"id": "speed-module-3", "amount": 5}, {"id": "steel-plate", "amount": 40}], "isBase": false, "usage": 0}, "power-switch": {"name": "Power switch", "depth": 4, "ingredients": [{"id": "copper-cable", "amount": 5}, {"id": "electronic-circuit", "amount": 2}, {"id": "iron-plate", "amount": 5}], "isBase": false, "usage": 0}, "processing-unit": {"name": "Processing unit", "depth": 5, "ingredients": [{"id": "advanced-circuit", "amount": 2}, {"id": "electronic-circuit", "amount": 20}, {"id": "sulfuric-acid", "amount": 5}], "isBase": false, "usage": 21}, "production-science-pack": {"name": "Production science pack", "depth": 6, "ingredients": [{"id": "electric-engine-unit", "amount": 1}, {"id": "electric-furnace", "amount": 1}], "isBase": false, "usage": 0}, "productivity-module": {"name": "Productivity module", "depth": 5, "ingredients": [{"id": "advanced-circuit", "amount": 5}, {"id": "electronic-circuit", "amount": 5}], "isBase": false, "usage": 1}, "productivity-module-2": {"name": "Productivity module 2", "depth": 6, "ingredients": [{"id": "advanced-circuit", "amount": 5}, {"id": "processing-unit", "amount": 5}, {"id": "productivity-module", "amount": 4}], "isBase": false, "usage": 1}, "productivity-module-3": {"name": "Productivity module 3", "depth": 7, "ingredients": [{"id": "advanced-circuit", "amount": 5}, {"id": "processing-unit", "amount": 5}, {"id": "productivity-module-2", "amount": 5}], "isBase": false, "usage": 0}, "programmable-speaker": {"name": "Programmable speaker", "depth": 4, "ingredients": [{"id": "copper-cable", "amount": 5}, {"id": "electronic-circuit", "amount": 4}, {"id": "iron-plate", "amount": 5}], "isBase": false, "usage": 0}, "pump": {"name": "Pump", "depth": 4, "ingredients": [{"id": "engine-unit", "amount": 1}, {"id": "pipe", "amount": 1}, {"id": "steel-plate", "amount": 1}], "isBase": false, "usage": 0}, "pumpjack": {"name": "Pumpjack", "depth": 4, "ingredients": [{"id": "electronic-circuit", "amount": 5}, {"id": "iron-gear-wheel", "amount": 10}, {"id": "pipe", "amount": 10}, {"id": "steel-plate", "amount": 5}], "isBase": false, "usage": 0}, "radar": {"name": "Radar", "depth": 4, "ingredients": [{"id": "electronic-circuit", "amount": 5}, {"id": "iron-gear-wheel", "amount": 5}, {"id": "iron-plate", "amount": 10}], "isBase": false, "usage": 3}, "rail": {"name": "Rail", "depth": 3, "ingredients": [{"id": "iron-stick", "amount": 1}, {"id": "steel-plate", "amount": 1}, {"id": "stone", "amount": 1}], "isBase": false, "usage": 0}, "rail-chain-signal": {"name": "Rail chain signal", "depth": 4, "ingredients": [{"id": "electronic-circuit", "amount": 1}, {"id": "iron-plate", "amount": 5}], "isBase": false, "usage": 0}, "rail-signal": {"name": "Rail signal", "depth": 4, "ingredients": [{"id": "electronic-circuit", "amount": 1}, {"id": "iron-plate", "amount": 5}], "isBase": false, "usage": 0}, "raw-fish": {"name": "Raw fish", "depth": 0, "ingredients": [], "isBase": true, "usage": 0}, "raw-wood": {"name": "Raw wood", "depth": 0, "ingredients": [], "isBase": true, "usage": 1}, "red-wire": {"name": "Red wire", "depth": 4, "ingredients": [{"id": "copper-cable", "amount": 1}, {"id": "electronic-circuit", "amount": 1}], "isBase": false, "usage": 0}, "refined-concrete": {"name": "Refined concrete", "depth": 3, "ingredients": [{"id": "concrete", "amount": 20}, {"id": "iron-stick", "amount": 8}, {"id": "steel-plate", "amount": 1}, {"id": "water", "amount": 100}], "isBase": false, "usage": 1}, "refined-hazard-concrete": {"name": "Refined hazard concrete", "depth": 4, "ingredients": [{"id": "refined-concrete", "amount": 10}], "isBase": false, "usage": 0}, "repair-pack": {"name": "Repair pack", "depth": 4, "ingredients": [{"id": "electronic-circuit", "amount": 2}, {"id": "iron-gear-wheel", "amount": 2}], "isBase": false, "usage": 0}, "logistic-chest-requester": {"name": "Requester chest", "depth": 5, "ingredients": [{"id": "advanced-circuit", "amount": 1}, {"id": "electronic-circuit", "amount": 3}, {"id": "steel-chest", "amount": 1}], "isBase": false, "usage": 0}, "roboport": {"name": "Roboport", "depth": 5, "ingredients": [{"id": "advanced-circuit", "amount": 45}, {"id": "iron-gear-wheel", "amount": 45}, {"id": "steel-plate", "amount": 45}], "isBase": false, "usage": 0}, "rocket": {"name": "Rocket", "depth": 4, "ingredients": [{"id": "electronic-circuit", "amount": 1}, {"id": "explosives", "amount": 1}, {"id": "iron-plate", "amount": 2}], "isBase": false, "usage": 1}, "rocket-control-unit": {"name": "Rocket control unit", "depth": 6, "ingredients": [{"id": "processing-unit", "amount": 1}, {"id": "speed-module", "amount": 1}], "isBase": false, "usage": 1}, "rocket-fuel": {"name": "Rocket fuel", "depth": 1, "ingredients": [{"id": "solid-fuel", "amount": 10}], "isBase": false, "usage": 3}, "rocket-launcher": {"name": "Rocket launcher", "depth": 4, "ingredients": [{"id": "electronic-circuit", "amount": 5}, {"id": "iron-gear-wheel", "amount": 5}, {"id": "iron-plate", "amount": 5}], "isBase": false, "usage": 0}, "rocket-part": {"name": "Rocket part", "depth": 7, "ingredients": [{"id": "low-density-structure", "amount": 10}, {"id": "rocket-control-unit", "amount": 10}, {"id": "rocket-fuel", "amount": 10}], "isBase": false, "usage": 1}, "rocket-silo": {"name": "Rocket silo", "depth": 6, "ingredients": [{"id": "concrete", "amount": 1000}, {"id": "electric-engine-unit", "amount": 200}, {"id": "pipe", "amount": 100}, {"id": "processing-unit", "amount": 200}, {"id": "steel-plate", "amount": 1000}], "isBase": false, "usage": 0}, "satellite": {"name": "Satellite", "depth": 6, "ingredients": [{"id": "accumulator", "amount": 100}, {"id": "low-density-structure", "amount": 100}, {"id": "processing-unit", "amount": 100}, {"id": "radar", "amount": 5}, {"id": "rocket-fuel", "amount": 50}, {"id": "solar-panel", "amount": 100}], "isBase": false, "usage": 1}, "science-pack-1": {"name": "Science pack 1", "depth": 3, "ingredients": [{"id": "copper-plate", "amount": 1}, {"id": "iron-gear-wheel", "amount": 1}], "isBase": false, "usage": 0}, "science-pack-2": {"name": "Science pack 2", "depth": 5, "ingredients": [{"id": "inserter", "amount": 1}, {"id": "transport-belt", "amount": 1}], "isBase": false, "usage": 0}, "science-pack-3": {"name": "Science pack 3", "depth": 5, "ingredients": [{"id": "advanced-circuit", "amount": 1}, {"id": "electric-mining-drill", "amount": 1}, {"id": "engine-unit", "amount": 1}], "isBase": false, "usage": 0}, "shotgun": {"name": "Shotgun", "depth": 3, "ingredients": [{"id": "copper-plate", "amount": 10}, {"id": "iron-gear-wheel", "amount": 5}, {"id": "iron-plate", "amount": 15}, {"id": "wood", "amount": 5}], "isBase": false, "usage": 0}, "shotgun-shells": {"name": "Shotgun shells", "depth": 2, "ingredients": [{"id": "copper-plate", "amount": 2}, {"id": "iron-plate", "amount": 2}], "isBase": false, "usage": 1}, "slowdown-capsule": {"name": "Slowdown capsule", "depth": 4, "ingredients": [{"id": "coal", "amount": 5}, {"id": "electronic-circuit", "amount": 2}, {"id": "steel-plate", "amount": 2}], "isBase": false, "usage": 0}, "small-electric-pole": {"name": "Small electric pole", "depth": 3, "ingredients": [{"id": "copper-cable", "amount": 2}, {"id": "wood", "amount": 2}], "isBase": false, "usage": 0}, "solar-panel": {"name": "Solar panel", "depth": 4, "ingredients": [{"id": "copper-plate", "amount": 5}, {"id": "electronic-circuit", "amount": 15}, {"id": "steel-plate", "amount": 5}], "isBase": false, "usage": 2}, "solid-fuel": {"name": "Solid fuel", "depth": 0, "ingredients": [], "isBase": true, "usage": 1}, "space-science-pack": {"name": "Space science pack", "depth": 8, "ingredients": [{"id": "rocket-part", "amount": 100}, {"id": "satellite", "amount": 1}], "isBase": false, "usage": 0}, "speed-module": {"name": "Speed module", "depth": 5, "ingredients": [{"id": "advanced-circuit", "amount": 5}, {"id": "electronic-circuit", "amount": 5}], "isBase": false, "usage": 5}, "speed-module-2": {"name": "Speed module 2", "depth": 6, "ingredients": [{"id": "advanced-circuit", "amount": 5}, {"id": "processing-unit", "amount": 5}, {"id": "speed-module", "amount": 4}], "isBase": false, "usage": 1}, "speed-module-3": {"name": "Speed module 3", "depth": 7, "ingredients": [{"id": "advanced-circuit", "amount": 5}, {"id": "processing-unit", "amount": 5}, {"id": "speed-module-2", "amount": 5}], "isBase": false, "usage": 1}, "splitter": {"name": "Splitter", "depth": 4, "ingredients": [{"id": "electronic-circuit", "amount": 5}, {"id": "iron-plate", "amount": 5}, {"id": "transport-belt", "amount": 4}], "isBase": false, "usage": 1}, "stack-filter-inserter": {"name": "Stack filter inserter", "depth": 7, "ingredients": [{"id": "electronic-circuit", "amount": 5}, {"id": "stack-inserter", "amount": 1}], "isBase": false, "usage": 0}, "stack-inserter": {"name": "Stack inserter", "depth": 6, "ingredients": [{"id": "advanced-circuit", "amount": 1}, {"id": "electronic-circuit", "amount": 15}, {"id": "fast-inserter", "amount": 1}, {"id": "iron-gear-wheel", "amount": 15}], "isBase": false, "usage": 1}, "steam": {"name": "Steam", "depth": 0, "ingredients": [], "isBase": true, "usage": 0}, "steam-engine": {"name": "Steam engine", "depth": 3, "ingredients": [{"id": "iron-gear-wheel", "amount": 8}, {"id": "iron-plate", "amount": 10}, {"id": "pipe", "amount": 5}], "isBase": false, "usage": 0}, "steam-turbine": {"name": "Steam turbine", "depth": 3, "ingredients": [{"id": "copper-plate", "amount": 50}, {"id": "iron-gear-wheel", "amount": 50}, {"id": "pipe", "amount": 20}], "isBase": false, "usage": 0}, "steel-axe": {"name": "Steel axe", "depth": 3, "ingredients": [{"id": "iron-stick", "amount": 2}, {"id": "steel-plate", "amount": 5}], "isBase": false, "usage": 0}, "steel-chest": {"name": "Steel chest", "depth": 3, "ingredients": [{"id": "steel-plate", "amount": 8}], "isBase": false, "usage": 5}, "steel-furnace": {"name": "Steel furnace", "depth": 3, "ingredients": [{"id": "steel-plate", "amount": 6}, {"id": "stone-brick", "amount": 10}], "isBase": false, "usage": 0}, "steel-plate": {"name": "Steel plate", "depth": 2, "ingredients": [{"id": "iron-plate", "amount": 5}], "isBase": false, "usage": 60}, "stone": {"name": "Stone", "depth": 0, "ingredients": [], "isBase": true, "usage": 4}, "stone-brick": {"name": "Stone brick", "depth": 1, "ingredients": [{"id": "stone", "amount": 2}], "isBase": false, "usage": 5}, "stone-furnace": {"name": "Stone furnace", "depth": 1, "ingredients": [{"id": "stone", "amount": 5}], "isBase": false, "usage": 2}, "stone-wall": {"name": "Stone wall", "depth": 2, "ingredients": [{"id": "stone-brick", "amount": 5}], "isBase": false, "usage": 1}, "logistic-chest-storage": {"name": "Storage chest", "depth": 5, "ingredients": [{"id": "advanced-circuit", "amount": 1}, {"id": "electronic-circuit", "amount": 3}, {"id": "steel-chest", "amount": 1}], "isBase": false, "usage": 0}, "storage-tank": {"name": "Storage tank", "depth": 3, "ingredients": [{"id": "iron-plate", "amount": 20}, {"id": "steel-plate", "amount": 5}], "isBase": false, "usage": 1}, "submachine-gun": {"name": "Submachine gun", "depth": 3, "ingredients": [{"id": "copper-plate", "amount": 5}, {"id": "iron-gear-wheel", "amount": 10}, {"id": "iron-plate", "amount": 10}], "isBase": false, "usage": 0}, "substation": {"name": "Substation", "depth": 5, "ingredients": [{"id": "advanced-circuit", "amount": 5}, {"id": "copper-plate", "amount": 5}, {"id": "steel-plate", "amount": 10}], "isBase": false, "usage": 0}, "sulfur": {"name": "Sulfur", "depth": 1, "ingredients": [{"id": "petroleum-gas", "amount": 30}, {"id": "water", "amount": 30}], "isBase": false, "usage": 2}, "sulfuric-acid": {"name": "Sulfuric acid", "depth": 0, "ingredients": [{"id": "iron-plate", "amount": 1}, {"id": "sulfur", "amount": 5}, {"id": "water", "amount": 100}], "isBase": true, "usage": 2}, "sulfuric-acid-barrel": {"name": "Sulfuric acid barrel", "depth": 0, "ingredients": [], "isBase": true, "usage": 0}, "tank": {"name": "Tank", "depth": 5, "ingredients": [{"id": "advanced-circuit", "amount": 10}, {"id": "engine-unit", "amount": 32}, {"id": "iron-gear-wheel", "amount": 15}, {"id": "steel-plate", "amount": 50}], "isBase": false, "usage": 0}, "train-stop": {"name": "Train stop", "depth": 4, "ingredients": [{"id": "electronic-circuit", "amount": 5}, {"id": "iron-plate", "amount": 10}, {"id": "steel-plate", "amount": 3}], "isBase": false, "usage": 0}, "transport-belt": {"name": "Transport belt", "depth": 3, "ingredients": [{"id": "iron-gear-wheel", "amount": 1}, {"id": "iron-plate", "amount": 1}], "isBase": false, "usage": 5}, "underground-belt": {"name": "Underground belt", "depth": 4, "ingredients": [{"id": "iron-plate", "amount": 10}, {"id": "transport-belt", "amount": 5}], "isBase": false, "usage": 1}, "uranium-cannon-shell": {"name": "Uranium cannon shell", "depth": 4, "ingredients": [{"id": "cannon-shell", "amount": 1}, {"id": "uranium-238", "amount": 1}], "isBase": false, "usage": 0}, "uranium-fuel-cell": {"name": "Uranium fuel cell", "depth": 2, "ingredients": [{"id": "iron-plate", "amount": 10}, {"id": "uranium-235", "amount": 1}, {"id": "uranium-238", "amount": 19}], "isBase": false, "usage": 1}, "uranium-ore": {"name": "Uranium ore", "depth": 0, "ingredients": [], "isBase": true, "usage": 1}, "uranium-processing": {"name": "Uranium processing", "depth": 1, "ingredients": [{"id": "uranium-ore", "amount": 10}, {"id": "uranium-235", "amount": 0.007}, {"id": "uranium-238", "amount": 0.993}], "isBase": false, "usage": 0}, "uranium-rounds-magazine": {"name": "Uranium rounds magazine", "depth": 4, "ingredients": [{"id": "piercing-rounds-magazine", "amount": 1}, {"id": "uranium-238", "amount": 1}], "isBase": false, "usage": 0}, "uranium-235": {"name": "Uranium-235", "depth": 0, "ingredients": [], "isBase": true, "usage": 5}, "uranium-238": {"name": "Uranium-238", "depth": 0, "ingredients": [], "isBase": true, "usage": 7}, "used-up-uranium-fuel-cell": {"name": "Used up uranium fuel cell", "depth": 3, "ingredients": [{"id": "uranium-fuel-cell", "amount": 1}], "isBase": false, "usage": 1}, "water": {"name": "Water", "depth": 0, "ingredients": [], "isBase": true, "usage": 5}, "water-barrel": {"name": "Water barrel", "depth": 0, "ingredients": [], "isBase": true, "usage": 0}, "wood": {"name": "Wood", "depth": 0, "ingredients": [{"id": "raw-wood", "amount": 1}], "isBase": true, "usage": 4}, "wooden-chest": {"name": "Wooden chest", "depth": 1, "ingredients": [{"id": "wood", "amount": 4}], "isBase": false, "usage": 0}};
+const FLUID_IDS = new Set(["crude-oil", "crude-oil-barrel", "heavy-oil", "heavy-oil-barrel", "light-oil", "light-oil-barrel", "lubricant", "lubricant-barrel", "petroleum-gas", "petroleum-gas-barrel", "steam", "sulfuric-acid", "sulfuric-acid-barrel", "water", "water-barrel"]);
+// ── Item icons from Factorio wiki ─────────────────────────────────
+function wikiIconUrl(name){
+  const slug=name.replace(/ /g,'_');
+  // Try direct wiki URL (no thumb resizing needed)
+  return `https://wiki.factorio.com/images/${slug}.png`;
+}
+
+// Test icon loading on startup - tries multiple URL patterns for 'Iron plate'
+function testIconUrls(){
+  const testName='Iron plate';
+  const slug=testName.replace(/ /g,'_');
+  const urls=[
+    `https://wiki.factorio.com/images/${slug}.png`,
+    `https://wiki.factorio.com/images/thumb/${slug}.png/32px-${slug}.png`,
+    `https://raw.githubusercontent.com/wube/factorio-data/master/core/graphics/icons/${slug.toLowerCase()}.png`,
+  ];
+  urls.forEach(url=>{
+    const img=new Image();
+    img.onload=()=>console.log('✓ WORKS:',url,'size:',img.naturalWidth,'x',img.naturalHeight);
+    img.onerror=()=>console.warn('✗ FAILED:',url);
+    img.src=url;
+  });
+}
+setTimeout(testIconUrls, 500);
+const ICON_CACHE={};
+function getIcon(id,name){
+  if(id in ICON_CACHE)return ICON_CACHE[id];
+  const img=new Image();
+  // No crossOrigin — we only draw, never read pixels, so taint doesn't matter
+  // crossOrigin='anonymous' would cause CORS preflight which wiki may reject
+  img.onload=()=>{ICON_CACHE[id]=img;requestAnimationFrame(()=>render());};
+  img.onerror=(e)=>{
+    console.warn('Icon failed:',name, wikiIconUrl(name));
+    ICON_CACHE[id]=null;
+  };
+  const url=wikiIconUrl(name);
+  console.log('Loading icon:',id,url);
+  img.src=url;
+  ICON_CACHE[id]=undefined;
+  return undefined;
+}
+
+function genColors(n){
+  const o=[];const g=0.618033988749895;let h=0.08;
+  for(let i=0;i<n;i++){h=(h+g)%1;const s=60+(i%3)*12,l=42+(i%4)*6;o.push(hslStr(h*360,s,l));}
+  return o;
+}
+function hslStr(h,s,l){
+  s/=100;l/=100;const a=s*Math.min(l,1-l);
+  const f=n=>{const k=(n+h/30)%12;return l-a*Math.max(Math.min(k-3,9-k,1),-1);};
+  return '#'+[f(0),f(8),f(4)].map(x=>Math.round(x*255).toString(16).padStart(2,'0')).join('');
+}
+function lighten(hex,a=35){
+  return '#'+[1,3,5].map(i=>Math.min(255,parseInt(hex.slice(i,i+2),16)+a).toString(16).padStart(2,'0')).join('');
+}
+
+// ── Row layout (offsets within each row, in tiles) ────────────────
+// +0  : top gap
+// +1  : LEFT  input slot 0  (3rd row above asm)
+// +2  : LEFT  input slot 1  (2nd row above asm)
+// +3  : RIGHT input slot 0  (3rd row above asm)
+// +4  : RIGHT input slot 1  (2nd row above asm)
+// +5  : inserter row (1 row directly above asm, both sides)
+// +6  : ASM top
+// +7  : ASM
+// +8  : ASM
+// +9  : ASM bottom  (4 tiles)
+// +10 : inserter row (1 row directly below asm, both sides)
+// +11 : LEFT  output belt  (2nd row below asm)
+// +12 : RIGHT output belt  (2nd row below asm, separate from left)
+// +13 : gap
+const ROW_H = 10;  // +0 feed2(fluid), +1 feed1, +2 inserter, +3-6 asm, +7 inserter, +8 output, +9 gap
+
+// Liquid feeds need 2-row gap to asm top (+6).
+// Left slot0=+1 → 4-row gap ✓, slot1=+2 → 3-row gap ✓
+// Right slot0=+3 → 2-row gap ✓, slot1=+4 → 1-row gap ✗
+// So: liquids on right side must go in slot0 (+3) only.
+// We enforce this in asmFeeds building below.
+
+// Slots ordered bottom-up (closest to assembler first).
+// Single-ingredient assemblers land in the row right above the inserter.
+// Both sides fill bottom-up. Same offsets OK: left feeds go left-of-belt, right go right.
+const LEFT_SLOTS  = [1, 0];  // slot0=+1 (1-row gap to asm), slot1=+0 (2-row gap, also for fluids)
+const RIGHT_SLOTS = [1, 0];
+const ASM_OFF     = 3;
+const ASM_ROWS    = 4;
+const OUT_OFF     = 8;         // +7=inserter below asm, +8=output (1-row gap from asm bottom at +6)
+
+const ASM_W       = 4;
+const BELT_GAP    = 2;
+const LANE_STEP   = 1 + BELT_GAP;
+const HEADER_H    = 5;
+const PAD         = 2;
+const BASE_T      = 14;
+const DEPTH_COLORS=['#4caf50','#8bc34a','#cddc39','#ffc107','#ff9800','#ff5722','#f44336','#e91e63','#9c27b0'];
+const dc=d=>DEPTH_COLORS[Math.min(d,8)];
+
+const rowBase  = r => PAD + HEADER_H + r * ROW_H;
+const rowAsmTY = r => rowBase(r) + ASM_OFF;
+const rowOutTY = (r) => rowBase(r) + OUT_OFF;
+
+function fullGraph(){
+  const N={};
+  for(const[id,v]of Object.entries(RECIPES))N[id]={...v,id};
+  return N;
+}
+
+function packBelts(ids,interval){
+  const sorted=[...ids].sort((a,b)=>interval(a)[0]-interval(b)[0]);
+  const lanes=[],cm={};
+  for(const id of sorted){
+    const[s,e]=interval(id);let ok=false;
+    for(let c=0;c<lanes.length;c++)if(lanes[c]<s){cm[id]=c;lanes[c]=e;ok=true;break;}
+    if(!ok){cm[id]=lanes.length;lanes.push(e);}
+  }
+  return{cm,n:lanes.length};
+}
+
+function buildScene(nodes){
+  const asm=Object.values(nodes).filter(n=>!n.isBase);
+  asm.sort((a,b)=>a.depth-b.depth||b.usage-a.usage||a.name.localeCompare(b.name));
+
+  const asmRow={},asmSide={};
+  let lr=0,rr=0;
+  asm.forEach((n,i)=>{
+    if(i%2===0){asmSide[n.id]='right';asmRow[n.id]=rr++;}
+    else        {asmSide[n.id]='left'; asmRow[n.id]=lr++;}
+  });
+  const numRows=Math.max(lr,rr);
+
+  const needsBelt=new Set();
+  for(const n of asm)for(const ing of(n.ingredients||[]))if(nodes[ing.id])needsBelt.add(ing.id);
+  const bids=[...needsBelt];
+
+  const allIds=Object.keys(nodes);
+  const pool=genColors(allIds.length+30);
+  const iCol={};
+  allIds.forEach((id,i)=>iCol[id]=pool[i%pool.length]);
+  // Base resources get unique colors from the pool like everything else
+
+  // ── Belt column packing (needs preliminary biv based on row geometry) ──
+  // biv_prelim: vertical belt interval using the inserter row as the feed endpoint
+  // (actual feed tileY may shift during scheduling, but we use this for column packing)
+  function biv_prelim(id){
+    const node=nodes[id];
+    // startTY: base resources start at top; assembled items start at their output row
+    const startTY = node.isBase ? (PAD+HEADER_H) : (rowBase(asmRow[id])+OUT_OFF);
+    let endTY=-1;
+    for(const n of asm){
+      if((n.ingredients||[]).some(i=>i.id===id)){
+        // Pessimistically use the inserter row (ASM_OFF-1) as the feed endpoint
+        const candidate=rowBase(asmRow[n.id])+ASM_OFF-1;
+        if(candidate>endTY)endTY=candidate;
+      }
+    }
+    return[startTY,endTY];
+  }
+
+  const{cm:beltCol,n:numBeltCols}=packBelts(bids,biv_prelim);
+
+  const ICON_W=3;
+  const leftAsmW=ASM_W+1, beltStart=PAD+ICON_W+leftAsmW;
+  const beltAreaW=numBeltCols>0?numBeltCols*LANE_STEP-BELT_GAP:0;
+  const rightAsmX=beltStart+beltAreaW+1;
+  const totalCols=rightAsmX+ASM_W+ICON_W+PAD;
+  const totalTileRows=PAD+HEADER_H+numRows*ROW_H+PAD;
+
+  const beltTX    =id=>beltStart+beltCol[id]*LANE_STEP;
+  const asmTX     =id=>asmSide[id]==='right'?rightAsmX:(PAD+ICON_W);
+  const asmInnerTX=id=>asmSide[id]==='right'?rightAsmX:(PAD+ICON_W+ASM_W);
+
+  // ── Greedy horizontal segment scheduler ──────────────────────────
+  // Tracks claimed horizontal belt segments: tileY → [{xL,xR}]
+  const hClaimed={};
+  function hConflicts(tileY,xL,xR){
+    if(!hClaimed[tileY])return false;
+    return hClaimed[tileY].some(seg=>xL<seg.xR&&xR>seg.xL);
+  }
+  function hClaim(tileY,xL,xR){
+    if(!hClaimed[tileY])hClaimed[tileY]=[];
+    hClaimed[tileY].push({xL,xR});
+  }
+
+  // Feed x-range for a given side and ingredient belt column
+  function feedXRange(side,btx){
+    return side==='right'?[btx,rightAsmX+ASM_W]:[PAD+ICON_W,btx+1];
+  }
+  // Output x-range for a given side and item belt column
+  function outXRange(side,btx){
+    return side==='right'?[btx,rightAsmX+ASM_W]:[PAD+ICON_W,btx+1];
+  }
+
+  // Assign a free tileY for a feed slot, searching outward from ideal
+  // Feeds go ABOVE the assembler: ideal = inserterAbove-1, search upward
+  function claimFeedTY(side,btx,asmInserterTY,isFluid){
+    // Fluid needs ≥2 clear rows to asm top; solid needs ≥1 (just the inserter)
+    const maxTY = isFluid ? asmInserterTY-2 : asmInserterTY-1;
+    const[xL,xR]=feedXRange(side,btx);
+    // Search from closest to asm upward
+    for(let ty=maxTY;ty>=PAD+HEADER_H-1;ty--){
+      if(!hConflicts(ty,xL,xR)){hClaim(ty,xL,xR);return ty;}
+    }
+    // Fallback: just use maxTY even if conflicted (shouldn't happen)
+    hClaim(maxTY,xL,xR); return maxTY;
+  }
+
+  // Assign a free tileY for an output stub, searching downward from ideal
+  function claimOutTY(side,btx,asmInserterBelowTY){
+    const idealTY=asmInserterBelowTY+1;
+    const[xL,xR]=outXRange(side,btx);
+    for(let ty=idealTY;ty<=asmInserterBelowTY+8;ty++){
+      if(!hConflicts(ty,xL,xR)){hClaim(ty,xL,xR);return ty;}
+    }
+    hClaim(idealTY,xL,xR); return idealTY;
+  }
+
+  // Build feeds and outputs with conflict-free tileY assignment
+  const asmFeeds={};   // id → [{tileY, top, bot, isFluid}]
+  const asmOutTY={};   // id → tileY of output stub
+
+  for(const n of asm){
+    const side=asmSide[n.id], r=asmRow[n.id];
+    const inserterAboveTY=rowBase(r)+ASM_OFF-1;  // row directly above asm
+    const inserterBelowTY=rowBase(r)+ASM_OFF+ASM_ROWS; // row directly below asm
+
+    const ings=(n.ingredients||[]).filter(ing=>ing.id in beltCol);
+    const solids=ings.filter(i=>!FLUID_IDS.has(i.id));
+    const fluids=ings.filter(i=>FLUID_IDS.has(i.id));
+
+    const slots=[];
+    // Pair solids (2 per feed row), each pair gets one tileY
+    for(let i=0;i<solids.length;i+=2){
+      const btx=beltTX(solids[i].id);
+      const[xL,xR]=feedXRange(side,btx);
+      const ty=claimFeedTY(side,btx,inserterAboveTY,false);
+      slots.push({tileY:ty, top:solids[i], bot:solids[i+1]||null, isFluid:false});
+    }
+    // Each fluid gets its own tileY (needs 2-row gap)
+    for(const f of fluids){
+      const btx=beltTX(f.id);
+      const ty=claimFeedTY(side,btx,inserterAboveTY,true);
+      slots.push({tileY:ty, top:f, bot:null, isFluid:true});
+    }
+    asmFeeds[n.id]=slots;
+
+    // Output stub tileY
+    if(n.id in beltCol){
+      const btx=beltTX(n.id);
+      asmOutTY[n.id]=claimOutTY(side,btx,inserterBelowTY);
+    }
+  }
+
+  // ── Final biv: uses actual scheduled tileY values ─────────────────
+  function biv(id){
+    const node=nodes[id];
+    // startTY: base resources from top; assembled from their scheduled output row
+    const startTY = node.isBase ? (PAD+HEADER_H) : (asmOutTY[id]??rowBase(asmRow[id])+OUT_OFF);
+    let endTY=-1;
+    for(const n of asm){
+      const slots=asmFeeds[n.id]||[];
+      for(const slot of slots){
+        const isMatch=slot.top?.id===id||(slot.bot?.id===id);
+        if(isMatch&&slot.tileY>endTY)endTY=slot.tileY;
+      }
+    }
+    return[startTY,endTY];
+  }
+
+  return{
+    nodes,asm,asmRow,asmSide,numRows,bids,beltCol,numBeltCols,
+    iCol,beltTX,asmTX,asmInnerTX,totalCols,totalTileRows,
+    biv,rightAsmX,beltStart,asmFeeds,asmOutTY
+  };
+}
+
+function drawScene(sc,T,hlId){
+  const{nodes,asm,asmRow,asmSide,numRows,bids,beltCol,numBeltCols,
+    iCol,beltTX,asmTX,asmInnerTX,totalCols,totalTileRows,
+    biv,rightAsmX,beltStart,asmFeeds,asmOutTY}=sc;
+
+  const ICON_W=3;
+  const W=totalCols*T,H=totalTileRows*T;
+  const cv=document.createElement('canvas');
+  cv.width=W;cv.height=H;
+  const ctx=cv.getContext('2d');
+  const px=tx=>tx*T,py=ty=>ty*T;
+
+  const hl=hlId;
+  const bCol=id=>{const c=iCol[id]||'#888';return(!hl||id===hl)?lighten(c,hl?30:0):'#1e1e16';};
+  const bAlp=id=>(!hl||id===hl)?1:0.06;
+  const aAlp=id=>(!hl||id===hl)?1:0.22;
+  const aCol=id=>(!hl||id===hl)?lighten(iCol[id]||'#888',hl?30:0):(iCol[id]||'#888');
+
+  // Background
+  ctx.fillStyle='#0e0e08';ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle='#15150d';ctx.lineWidth=0.5;
+  for(let r=0;r<totalTileRows;r++)for(let c=0;c<totalCols;c++)
+    ctx.strokeRect(c*T+.5,r*T+.5,T-1,T-1);
+
+  // Belt column shading
+  for(let i=0;i<numBeltCols;i++){
+    const tx=beltStart+i*LANE_STEP;
+    ctx.fillStyle='#161612';ctx.fillRect(px(tx),0,T,H);
+    for(let g=1;g<=BELT_GAP;g++){ctx.fillStyle='#0e0e08';ctx.fillRect(px(tx+g),0,T,H);}
+  }
+
+  // Row stripes
+  for(let r=0;r<numRows;r++){
+    const y=py(rowBase(r));
+    if(r%2===0){ctx.fillStyle='rgba(255,255,255,.01)';ctx.fillRect(0,y,W,py(ROW_H));}
+    ctx.strokeStyle='#1a1a0c';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();
+    // Faint line at asm top and between left/right input bands
+    ctx.strokeStyle='#141408';
+    [ASM_OFF].forEach(off=>{
+      const sy=py(rowBase(r)+off);
+      ctx.beginPath();ctx.moveTo(0,sy);ctx.lineTo(W,sy);ctx.stroke();
+    });
+  }
+
+  // Depth bars
+  const depths=[...new Set(asm.map(n=>n.depth))].sort((a,b)=>a-b);
+  for(const d of depths){
+    const rs=asm.filter(n=>n.depth===d).map(n=>asmRow[n.id]);
+    const y1=py(rowBase(Math.min(...rs))),y2=py(rowBase(Math.max(...rs))+ROW_H);
+    ctx.fillStyle=dc(d);ctx.globalAlpha=.4;ctx.fillRect(W-3,y1,3,y2-y1);ctx.globalAlpha=1;
+    ctx.fillStyle=dc(d);ctx.font=`bold ${Math.max(6,T*.55)}px Share Tech Mono,monospace`;
+    ctx.textAlign='right';ctx.textBaseline='top';ctx.fillText(`D${d}`,W-5,y1+1);
+  }
+
+  // Base headers
+  for(const base of Object.values(nodes).filter(n=>n.isBase&&n.id in beltCol)){
+    const tx=beltTX(base.id),col=bCol(base.id),a=bAlp(base.id);
+    ctx.fillStyle=col;ctx.globalAlpha=a*.22;ctx.fillRect(px(tx),py(PAD),T,py(HEADER_H));ctx.globalAlpha=1;
+    ctx.strokeStyle=col;ctx.lineWidth=1;ctx.globalAlpha=a*.65;
+    ctx.strokeRect(px(tx)+.5,py(PAD)+.5,T-1,py(HEADER_H)-1);ctx.globalAlpha=1;
+    ctx.save();ctx.translate(px(tx)+T/2,py(PAD+HEADER_H/2));ctx.rotate(-Math.PI/2);
+    ctx.fillStyle=col;ctx.globalAlpha=a;
+    ctx.font=`bold ${Math.max(6,T*.5)}px Share Tech Mono,monospace`;
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(base.name.substring(0,12),0,0);ctx.restore();ctx.globalAlpha=1;
+  }
+
+  // ── PASS 1: Input feeds (horizontal) ─────────────────────────────
+  for(const n of asm){
+    const row=asmRow[n.id],side=asmSide[n.id];
+    const innerTX=asmInnerTX(n.id);
+
+    const drawHalf=(ing,tileY,yOff,hh)=>{
+      if(!ing)return;
+      const col=bCol(ing.id),a=bAlp(ing.id);
+      const btx=beltTX(ing.id);
+      const[xL,xR]=side==='right'?[btx,rightAsmX+ASM_W]:[PAD+ICON_W,btx+1];
+      ctx.globalAlpha=a;
+      for(let hx=xL;hx<xR;hx++){
+        ctx.fillStyle=col;ctx.fillRect(px(hx)+1,py(tileY)+yOff,T-2,hh);
+      }
+      ctx.fillStyle=col;
+      ctx.beginPath();ctx.arc(px(btx)+T/2,py(tileY)+yOff+hh/2,T*.22,0,Math.PI*2);ctx.fill();
+      const ax=side==='right'?px(innerTX):px(innerTX+1);
+      const ay=py(tileY)+yOff+hh/2;
+      if(side==='right'){ctx.beginPath();ctx.moveTo(ax,ay-T*.22);ctx.lineTo(ax,ay+T*.22);ctx.lineTo(ax+T*.38,ay);ctx.closePath();ctx.fill();}
+      else{ctx.beginPath();ctx.moveTo(ax,ay-T*.22);ctx.lineTo(ax,ay+T*.22);ctx.lineTo(ax-T*.38,ay);ctx.closePath();ctx.fill();}
+      const lx=px(btx)+T/2,ly=py(tileY)+yOff+hh/2;
+      const fs=Math.max(6,T*.5);
+      ctx.font=`bold ${fs}px Share Tech Mono,monospace`;
+      const lw=ctx.measureText(`×${ing.amount}`).width;
+      ctx.fillStyle='rgba(0,0,0,.85)';ctx.fillRect(lx-lw/2-2,ly-fs/2-1,lw+4,fs+2);
+      ctx.fillStyle=col;ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText(`×${ing.amount}`,lx,ly);
+      ctx.globalAlpha=1;
+    };
+
+    for(const slot of(asmFeeds[n.id]||[])){
+      const tileY=slot.tileY;
+      if(slot.bot){
+        drawHalf(slot.top,tileY,1,Math.floor(T/2)-1);
+        drawHalf(slot.bot,tileY,Math.floor(T/2),Math.floor(T/2)-1);
+      } else {
+        // Fluid: draw with a dashed/striped pattern to indicate pipe
+        drawHalf(slot.top,tileY,slot.isFluid?2:1,slot.isFluid?T-4:T-2);
+      }
+    }
+  }
+
+  // ── PASS 2: Output stubs (left and right on DIFFERENT tile rows) ──
+  for(const id of bids){
+    const node=nodes[id];
+    if(node.isBase||!(id in asmRow))continue;
+    const col=bCol(id),a=bAlp(id);
+    const row=asmRow[id],side=asmSide[id];
+    const btx=beltTX(id);
+    // Left output at +11, right output at +12 — no collision possible
+    const outTY=asmOutTY[id]??rowBase(row)+OUT_OFF;
+    const[xL,xR]=side==='right'?[btx,rightAsmX+ASM_W]:[PAD+ICON_W,btx+1];
+    ctx.globalAlpha=a;
+    for(let hx=xL;hx<xR;hx++){
+      ctx.fillStyle=col;ctx.fillRect(px(hx)+2,py(outTY)+2,T-4,T-4);
+      ctx.fillStyle='#fff';ctx.globalAlpha=a*.09;
+      ctx.fillRect(px(hx)+2,py(outTY)+T*.35,T-4,T*.28);
+      ctx.globalAlpha=a;
+    }
+    ctx.globalAlpha=1;
+  }
+
+  // ── PASS 3: Vertical belts ────────────────────────────────────────
+  for(const id of bids){
+    const node=nodes[id];
+    const col=bCol(id),a=bAlp(id);
+    const tx=beltTX(id);
+    const[tyStart,tyEnd]=biv(id);
+    if(tyEnd<0)continue;
+
+    ctx.globalAlpha=a;
+    for(let ty=tyStart;ty<=tyEnd;ty++){
+      ctx.fillStyle=col;ctx.fillRect(px(tx)+2,py(ty)+2,T-4,T-4);
+      ctx.fillStyle='#fff';ctx.globalAlpha=a*.09;
+      ctx.fillRect(px(tx)+T*.36,py(ty)+2,T*.28,T-4);
+      ctx.globalAlpha=a;
+    }
+    ctx.fillStyle='#fff';ctx.globalAlpha=a*.55;
+    for(let ty=tyStart+2;ty<=tyEnd-1;ty+=5){
+      const cx=px(tx)+T/2,cy=py(ty)+T/2;
+      ctx.beginPath();ctx.moveTo(cx,cy+T*.3);ctx.lineTo(cx+T*.22,cy-T*.15);ctx.lineTo(cx-T*.22,cy-T*.15);ctx.closePath();ctx.fill();
+    }
+    ctx.globalAlpha=1;
+
+    // Junction dots
+    for(const n of asm){
+      const row=asmRow[n.id];
+      for(const slot of(asmFeeds[n.id]||[])){
+        const tileY=slot.tileY;
+        if(tileY<tyStart||tileY>=tyEnd)continue;
+        [[slot.top,slot.isFluid?2:1,slot.isFluid?T-4:Math.floor(T/2)-1],
+         [slot.bot,Math.floor(T/2),Math.floor(T/2)-1]].forEach(([ing,yOff,hh])=>{
+          if(!ing||ing.id!==id)return;
+          ctx.fillStyle=col;ctx.globalAlpha=a;
+          ctx.beginPath();ctx.arc(px(tx)+T/2,py(tileY)+yOff+hh/2,T*.26,0,Math.PI*2);ctx.fill();
+          ctx.globalAlpha=1;
+        });
+      }
+    }
+  }
+
+  // ── PASS 4: Assembler boxes ────────────────────────────────────────
+  for(const n of asm){
+    const row=asmRow[n.id],col=aCol(n.id),a=aAlp(n.id);
+    const atx=asmTX(n.id),aty=rowAsmTY(row);
+    const bx=px(atx),by=py(aty),bw=ASM_W*T,bh=ASM_ROWS*T;
+    ctx.globalAlpha=a;
+    ctx.fillStyle='rgba(0,0,0,.4)';ctx.fillRect(bx+3,by+3,bw,bh);
+    ctx.fillStyle='#1c1e10';ctx.fillRect(bx,by,bw,bh);
+    ctx.fillStyle=col;ctx.globalAlpha=a*.15;ctx.fillRect(bx,by,bw,bh);ctx.globalAlpha=a;
+    ctx.strokeStyle=col;ctx.lineWidth=1.5;ctx.strokeRect(bx+.5,by+.5,bw-1,bh-1);
+    ctx.strokeStyle=col;ctx.globalAlpha=a*.22;ctx.lineWidth=.8;ctx.strokeRect(bx+3,by+3,bw-6,bh-6);ctx.globalAlpha=a;
+    ctx.fillStyle=col;ctx.fillRect(bx,by,bw,2);
+    ctx.fillStyle=col;ctx.globalAlpha=a*.4;ctx.fillRect(bx,by+bh-2,bw,2);ctx.globalAlpha=a;
+    ctx.fillStyle='#333320';
+    [[3,3],[bw-5,3],[3,bh-5],[bw-5,bh-5]].forEach(([ox,oy])=>ctx.fillRect(bx+ox,by+oy,3,3));
+    ctx.fillStyle=col;ctx.globalAlpha=a*.88;
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    const ws=n.name.split(' '),l1=ws.slice(0,Math.ceil(ws.length/2)).join(' '),l2=ws.slice(Math.ceil(ws.length/2)).join(' ');
+    const maxW=bw-8; // inner padding
+    // Start at ideal size, shrink until both lines fit within the box width
+    let fs=Math.max(5,T*.62);
+    ctx.font=`bold ${fs}px Share Tech Mono,monospace`;
+    while(fs>5&&Math.max(ctx.measureText(l1).width,l2?ctx.measureText(l2).width:0)>maxW){
+      fs=Math.max(5,fs-0.5);
+      ctx.font=`bold ${fs}px Share Tech Mono,monospace`;
+    }
+    if(l2){ctx.fillText(l1,bx+bw/2,by+bh/2-fs*.6);ctx.fillText(l2,bx+bw/2,by+bh/2+fs*.6);}
+    else ctx.fillText(l1,bx+bw/2,by+bh/2);
+    ctx.globalAlpha=1;
+  }
+
+  // ── PASS 5: Item icons beside assembler boxes ────────────────────
+  for(const n of asm){
+    const img=getIcon(n.id,n.name);
+    if(!img)continue;
+    const row=asmRow[n.id],side=asmSide[n.id],a=aAlp(n.id);
+    const aty=rowAsmTY(row);
+    const boxH=ASM_ROWS*T;
+    // Fit icon in the ICON_W tile zone, square, centered vertically
+    const zone=ICON_W*T;
+    const iconSize=Math.min(zone-4, boxH-4, img.naturalWidth||32);
+    const iw=iconSize, ih=iconSize;
+    const iy=py(aty)+(boxH-ih)/2;
+    let ix;
+    if(side==='right'){
+      ix=px(rightAsmX+ASM_W)+(zone-iw)/2;
+    } else {
+      // left asm starts at PAD+ICON_W, so icon zone is PAD..PAD+ICON_W
+      ix=px(PAD)+(zone-iw)/2;
+    }
+    ctx.globalAlpha=a;
+    ctx.drawImage(img,ix,iy,iw,ih);
+    ctx.globalAlpha=1;
+  }
+
+  cv._W=W;cv._H=H;cv._T=T;
+  return cv;
+}
+
+function buildHitMap(sc,T){
+  const ICON_W=3;
+  const{nodes,asm,asmRow,asmSide,bids,beltCol,beltTX,asmTX,
+    biv,asmFeeds,asmOutTY,rightAsmX}=sc;
+  const m={};
+  const reg=(tx,ty,info)=>{m[`${Math.floor(tx)},${Math.floor(ty)}`]=info;};
+
+  for(const id of bids){
+    const node=nodes[id];const tx=beltTX(id);
+    const[tyStart,tyEnd]=biv(id);if(tyEnd<0)continue;
+    for(let ty=tyStart;ty<=tyEnd;ty++)reg(tx,ty,{id,name:node.name,type:'Belt lane',depth:node.depth});
+  }
+  for(const id of bids){
+    const node=nodes[id];if(node.isBase||!(id in asmRow))continue;
+    const row=asmRow[id],side=asmSide[id];
+    const btx=beltTX(id);
+    const outTY=asmOutTY[id]??rowBase(row)+OUT_OFF;
+    const[xL,xR]=side==='right'?[btx,rightAsmX+ASM_W]:[PAD+ICON_W,btx+1];
+    for(let hx=xL;hx<xR;hx++)reg(hx,outTY,{id,name:node.name+' output',type:'Output belt'});
+  }
+  for(const n of asm){
+    const row=asmRow[n.id],side=asmSide[n.id];
+    for(const slot of(asmFeeds[n.id]||[])){
+      const tileY=slot.tileY;
+      [[slot.top],[slot.bot]].forEach(([ing])=>{
+        if(!ing)return;
+        const btx=beltTX(ing.id);
+        const[xL,xR]=side==='right'?[btx,rightAsmX+ASM_W]:[PAD+ICON_W,btx+1];
+        for(let hx=xL;hx<xR;hx++)reg(hx,tileY,{id:ing.id,name:(nodes[ing.id]||{}).name||ing.id,type:`Input → ${n.name}`});
+      });
+    }
+  }
+  for(const n of asm){
+    const row=asmRow[n.id],atx=asmTX(n.id),aty=rowAsmTY(row);
+    for(let dy=0;dy<ASM_ROWS;dy++)for(let dx=0;dx<ASM_W;dx++)
+      reg(atx+dx,aty+dy,{id:n.id,name:n.name,type:'Assembler',depth:n.depth,usage:n.usage});
+  }
+  return m;
+}
+
+// ── State & rendering ─────────────────────────────────────────────
+let zoom=1,hlId=null,scene=null,hitMap=null,currentCanvas=null;
+const holder=document.getElementById('canvas-holder');
+const vp=document.getElementById('vp');
+
+function tileSize(){return Math.max(4,Math.round(BASE_T*zoom));}
+
+function render(){
+  if(!scene)return;
+  const savedScroll=vp.scrollTop;
+  const T=tileSize();
+  const cv=drawScene(scene,T,hlId);
+  hitMap=buildHitMap(scene,T);
+  holder.innerHTML='';
+  holder.style.minHeight=cv._H+'px';
+  holder.appendChild(cv);
+  currentCanvas=cv;
+  vp.scrollTop=savedScroll;
+  cv.addEventListener('mousemove',onMouseMove);
+  cv.addEventListener('mouseleave',()=>document.getElementById('tt').classList.remove('v'));
+  cv.addEventListener('click',onClick);
+  document.getElementById('zlbl').textContent=Math.round(zoom*100)+'%';
+}
+
+function setHighlight(id){
+  hlId=id;
+  const srch=document.getElementById('srch');
+  if(id){srch.value=(scene.nodes[id]||{}).name||id;document.getElementById('clr').classList.add('v');}
+  else{srch.value='';document.getElementById('clr').classList.remove('v');}
+  render();
+}
+
+const tt=document.getElementById('tt');
+function onMouseMove(e){
+  if(!hitMap||!currentCanvas)return;
+  const rect=currentCanvas.getBoundingClientRect();
+  const T=tileSize();
+  const tx=Math.floor((e.clientX-rect.left)/T);
+  const ty=Math.floor((e.clientY-rect.top)/T);
+  const info=hitMap[`${tx},${ty}`];
+  if(info){
+    let h=`<b>${info.name}</b><s>${info.type}</s>`;
+    if(info.depth!==undefined)h+=`<br><s>depth ${info.depth}${info.usage!==undefined?' · ×'+info.usage+' recipes':''}</s>`;
+    tt.innerHTML=h;tt.classList.add('v');
+    tt.style.left=(e.clientX+14)+'px';tt.style.top=(e.clientY-8)+'px';
+    currentCanvas.style.cursor=info.id?'pointer':'default';
+  } else {tt.classList.remove('v');currentCanvas.style.cursor='default';}
+}
+function onClick(e){
+  if(!hitMap||!currentCanvas)return;
+  const rect=currentCanvas.getBoundingClientRect();
+  const T=tileSize();
+  const tx=Math.floor((e.clientX-rect.left)/T);
+  const ty=Math.floor((e.clientY-rect.top)/T);
+  const info=hitMap[`${tx},${ty}`];
+  if(info?.id)setHighlight(hlId===info.id?null:info.id);
+  else setHighlight(null);
+}
+
+vp.addEventListener('wheel',e=>{
+  if(e.ctrlKey||e.metaKey){
+    e.preventDefault();
+    const ratio=vp.scrollTop/Math.max(1,vp.scrollHeight-vp.clientHeight);
+    zoom=Math.max(0.1,Math.min(8,zoom*(e.deltaY<0?1.15:1/1.15)));
+    render();
+    requestAnimationFrame(()=>{vp.scrollTop=ratio*(vp.scrollHeight-vp.clientHeight);});
+  }
+},{passive:false});
+
+function fitScreen(){
+  if(!scene)return;
+  zoom=Math.min(1,(vp.clientWidth-10)/(scene.totalCols*BASE_T));
+  render();vp.scrollTop=0;
+}
+
+document.getElementById('z-').addEventListener('click',()=>{zoom=Math.max(0.1,zoom/1.4);render();});
+document.getElementById('z+').addEventListener('click',()=>{zoom=Math.min(8,zoom*1.4);render();});
+document.getElementById('zfit').addEventListener('click',fitScreen);
+document.getElementById('z1').addEventListener('click',()=>{zoom=1;render();});
+
+const allAsm=Object.entries(RECIPES).filter(([,v])=>!v.isBase);
+const srch=document.getElementById('srch'),clr=document.getElementById('clr');
+srch.addEventListener('input',()=>{
+  const q=srch.value.trim().toLowerCase();
+  clr.classList.toggle('v',q.length>0);
+  const match=q?allAsm.find(([id,v])=>v.name.toLowerCase().includes(q)||id.includes(q)):null;
+  hlId=match?match[0]:null;render();
+});
+clr.addEventListener('click',()=>{srch.value='';clr.classList.remove('v');hlId=null;render();});
+document.addEventListener('keydown',e=>{
+  if(e.key==='/'&&document.activeElement!==srch){e.preventDefault();srch.focus();}
+  if(e.key==='Escape'){srch.value='';clr.classList.remove('v');hlId=null;render();srch.blur();}
+});
+
+scene=buildScene(fullGraph());
+render();
+requestAnimationFrame(()=>requestAnimationFrame(fitScreen));
+</script>
+</body>
+</html>
